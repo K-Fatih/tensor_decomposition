@@ -1,0 +1,22 @@
+sparse matrix factorisations
+
+Seminar project: KSVD and SPAMS factorisations as references and try other matrix/tensor factorisation schemes and build an automated comparison toolbox (to comment on the memory and cost of linear algebraic operations) that can be extended later
+
+https://arxiv.org/pdf/1610.09555.pdf
+
+https://sites.google.com/site/factorizinggiganticmatrices/
+
+https://github.com/cthurau/pymf
+
+
+
+examples: image -> matrix or tensor
+                   MOR data matrix
+
+set of images: MNIST
+
+Reduced order basis (modes)
+
+Synthetic
+
+random
