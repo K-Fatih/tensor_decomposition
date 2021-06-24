@@ -1,5 +1,6 @@
 from timeit import default_timer as timer
 import numpy as np
+import copy
 
 
 import matplotlib.pyplot as plt
@@ -16,8 +17,9 @@ class TensorDecomp:
         self.tensor = tensor
         self.size = tensor.size
         self.shape = tensor.shape
-        self.mem_size = tensor.nbytes
-        self.relative_error = None
+        self.memSize = tensor.nbytes
+        self.decRelError = None
+        self.decMemSize = 0
 
     
     def decompose(self, func, *args, **kwargs):        
@@ -25,6 +27,7 @@ class TensorDecomp:
         if func.__name__ not in decomp_list:
             print(f'Error! Given decomposition --> {func.__name__}')
             return
+
         elif func.__name__ == 'svd':            
             ts = timer()
             self.decomposed = func(self.tensor)        
@@ -38,38 +41,62 @@ class TensorDecomp:
             te = timer()
             self.decomp_type = func.__name__
             self.decomp_time = te-ts
+
         elif 'rank' in kwargs:
             ts = timer()
             self.decomposed = func(self.tensor, kwargs['rank'])
             te = timer()
             self.decomp_type = func.__name__
-            self.decomp_time = te-ts
+            self.decomp_time = te-ts        
+        
+
     def reconstruct(self):
+
         if self.decomp_type == 'svd':
-            self.recons = self.decomposed[0] @ (np.diag(self.decomposed[1])@self.decomposed[2])
-            self.decomp_rel_error = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+            self.recons = self.decomposed[0] @ (np.diag(self.decomposed[1])@self.decomposed[2])            
+
         elif self.decomp_type == 'tucker':
             from tensorly import tucker_tensor as tt
-            self.recons = tt.tucker_to_tensor(self.decomposed)
-            self.decomp_rel_error = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+            self.recons = tt.tucker_to_tensor(self.decomposed)            
+
         elif self.decomp_type == 'parafac':
             from tensorly import cp_tensor as ct
-            self.recons = ct.cp_to_tensor(self.decomposed)
-            self.decomp_rel_error = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+            self.recons = ct.cp_to_tensor(self.decomposed)            
+
         elif self.decomp_type == 'matrix_product_state':
             from tensorly import tt_tensor as tt
             self.recons = tt.tt_to_tensor(self.decomposed)
-            self.decomp_rel_error = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+
+      
+        self.decRelError = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+
+        for array in self.decomposed:
+            if isinstance(array,(np.ndarray)):        
+                self.decMemSize += array.nbytes
+            for array in self.decomposed[1]:
+                if isinstance(array,(np.ndarray)):
+                    self.decMemSize += array.nbytes
+
+    def vecMult(self, vec):
+        tenVec = self.tensor @ vec
+        decVec = self.recons @ vec
+        self.vecMultErr = np.linalg.norm(tenVec - decVec) / np.linalg.norm(tenVec)
 
        
 a = np.random.randint(20, size = (12,12))
+vec = np.random.randint(5, size = a.shape[1])
 
 tens = TensorDecomp(a.astype('float'))
-tens.decompose(matrix_product_state, rank = [1,2,1])
+tens.decompose(parafac, rank = 12)
 tens.reconstruct()
+tens.vecMult(vec)
 
-print("Decomposition Type:\t", tens.decomp_type)
-print("Decomposition Time:\t", tens.decomp_time)
-print("Decomposition Relative Error:\t", tens.decomp_rel_error)
+
+print(f"Size in memory before decomposition:{tens.memSize: 9d}")
+print(f"Decomposition Type:\t\t\t {tens.decomp_type}")
+print(f"Decomposition Time: {tens.decomp_time:39.16f}")
+print(f"Size in memory after decomposition:\t {tens.decMemSize}")
+print(f"Decomposition Relative Error:{tens.decRelError:30.16f}", )
+print(f"Vector Multiplication Error:{tens.vecMultErr:31.16f}" )
 
 
