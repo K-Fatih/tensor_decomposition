@@ -1,71 +1,75 @@
 from timeit import default_timer as timer
 import numpy as np
 
+
 import matplotlib.pyplot as plt
+from numpy.linalg import svd
+
 from tensorly.decomposition import parafac
 from tensorly.decomposition import tucker
 from tensorly.decomposition import matrix_product_state
 
-def timeit(method):
-
-    def timed(*args, **kw):
-        ts = timer()
-        result = method(*args, **kw)
-        te = timer()
-
-        #print ('%r (%r, %r) %2.2f sec' % (method.__name__, args, kw, te-ts))
-        return te-ts, result
-
-    return timed
+decomp_list = ['svd', 'parafac', 'tucker', 'matrix_product_state']
 
 class TensorDecomp:
-    def __init__(self, tensor):
+    def __init__(self, tensor):        
         self.tensor = tensor
         self.size = tensor.size
         self.shape = tensor.shape
-        self.mem_size = tensor.nbytes    
-        self.decomposition_type = ''   
+        self.mem_size = tensor.nbytes
+        self.relative_error = None
 
-    @timeit
-    def svd(self: 'TensorDecomp') -> 'list':
-        """
-
-        """       
-        u, s, v = np.linalg.svd(self.tensor)
-        return {f"SVD: Rank:": [u,s,v]}
-
-    @timeit
-    def cp(self, rank=2):
-        """
-
-        """
-        weights, factors = parafac(self.tensor,rank)
-        return {f"CP: Rank: {rank}": [weights, factors]}
-
-    @timeit
-    def tucker(self, rank= []):
-        """
-        
-        """
-        weights, factors = tucker(self.tensor, rank)
-        return {f"Tucker: Rank: {rank}": [weights, factors]}
-
-    @timeit
-    def tensor_train(self, rank=[]):
-        """
-        
-        """ 
-        weights, factors = matrix_product_state(self.tensor, rank)
-        return {f"TensorTrain with Rank: {rank}": [weights, factors]}
     
-    
+    def decompose(self, func, *args, **kwargs):        
+
+        if func.__name__ not in decomp_list:
+            print(f'Error! Given decomposition --> {func.__name__}')
+            return
+        elif func.__name__ == 'svd':            
+            ts = timer()
+            self.decomposed = func(self.tensor)        
+            te = timer()
+            self.decomp_time = te-ts
+            self.decomp_type = func.__name__            
+            
+        elif args:
+            ts = timer()
+            self.decomposed = func(self.tensor, args[0])
+            te = timer()
+            self.decomp_type = func.__name__
+            self.decomp_time = te-ts
+        elif 'rank' in kwargs:
+            ts = timer()
+            self.decomposed = func(self.tensor, kwargs['rank'])
+            te = timer()
+            self.decomp_type = func.__name__
+            self.decomp_time = te-ts
+    def reconstruct(self):
+        if self.decomp_type == 'svd':
+            self.recons = self.decomposed[0] @ (np.diag(self.decomposed[1])@self.decomposed[2])
+            self.decomp_rel_error = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+        elif self.decomp_type == 'tucker':
+            from tensorly import tucker_tensor as tt
+            self.recons = tt.tucker_to_tensor(self.decomposed)
+            self.decomp_rel_error = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+        elif self.decomp_type == 'parafac':
+            from tensorly import cp_tensor as ct
+            self.recons = ct.cp_to_tensor(self.decomposed)
+            self.decomp_rel_error = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+        elif self.decomp_type == 'matrix_product_state':
+            from tensorly import tt_tensor as tt
+            self.recons = tt.tt_to_tensor(self.decomposed)
+            self.decomp_rel_error = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+
        
-
-a = np.random.randint(20, size = (40,40))
-
+a = np.random.randint(20, size = (12,12))
 
 tens = TensorDecomp(a.astype('float'))
+tens.decompose(matrix_product_state, rank = [1,2,1])
+tens.reconstruct()
 
-y = tens.tensor_train([1,2,1])
+print("Decomposition Type:\t", tens.decomp_type)
+print("Decomposition Time:\t", tens.decomp_time)
+print("Decomposition Relative Error:\t", tens.decomp_rel_error)
 
-print(y)
+
