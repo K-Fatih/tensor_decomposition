@@ -1,14 +1,11 @@
-from timeit import default_timer as timer
 import numpy as np
-import copy
-
-
 import matplotlib.pyplot as plt
-from numpy.linalg import svd
 
+from numpy.linalg import svd
 from tensorly.decomposition import parafac
 from tensorly.decomposition import tucker
 from tensorly.decomposition import matrix_product_state
+from timeit import default_timer as timer
 
 decomp_list = ['svd', 'parafac', 'tucker', 'matrix_product_state']
 
@@ -81,22 +78,3 @@ class TensorDecomp:
         tenVec = self.tensor @ vec
         decVec = self.recons @ vec
         self.vecMultErr = np.linalg.norm(tenVec - decVec) / np.linalg.norm(tenVec)
-
-       
-a = np.random.randint(20, size = (12,12))
-vec = np.random.randint(5, size = a.shape[1])
-
-tens = TensorDecomp(a.astype('float'))
-tens.decompose(parafac, rank = 12)
-tens.reconstruct()
-tens.vecMult(vec)
-
-
-print(f"Size in memory before decomposition:{tens.memSize: 9d}")
-print(f"Decomposition Type:\t\t\t {tens.decomp_type}")
-print(f"Decomposition Time: {tens.decomp_time:39.16f}")
-print(f"Size in memory after decomposition:\t {tens.decMemSize}")
-print(f"Decomposition Relative Error:{tens.decRelError:30.16f}", )
-print(f"Vector Multiplication Error:{tens.vecMultErr:31.16f}" )
-
-
