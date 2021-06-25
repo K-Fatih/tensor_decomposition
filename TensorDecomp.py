@@ -15,7 +15,6 @@ class TensorDecomp:
         self.size = tensor.size
         self.shape = tensor.shape
         self.memSize = tensor.nbytes
-        self.decRelError = None
         self.decMemSize = 0
 
     
@@ -64,8 +63,7 @@ class TensorDecomp:
             from tensorly import tt_tensor as tt
             self.recons = tt.tt_to_tensor(self.decomposed)
 
-      
-        self.decRelError = np.linalg.norm(self.tensor - self.recons) / np.linalg.norm(self.tensor)
+ 
 
         for array in self.decomposed:
             if isinstance(array,(np.ndarray)):        
@@ -74,7 +72,12 @@ class TensorDecomp:
                 if isinstance(array,(np.ndarray)):
                     self.decMemSize += array.nbytes
 
-    def vecMult(self, vec):
-        tenVec = self.tensor @ vec
-        decVec = self.recons @ vec
-        self.vecMultErr = np.linalg.norm(tenVec - decVec) / np.linalg.norm(tenVec)
+    # def vecMult(self, vec):
+    #     tenVec = self.tensor @ vec
+    #     decVec = self.recons @ vec
+    #     self.vecMultErr = np.linalg.norm(tenVec - decVec) / np.linalg.norm(tenVec)
+
+    def error(self,func, x, y):
+
+        return func(x-y) / func(x)
+
