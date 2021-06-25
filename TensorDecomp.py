@@ -60,7 +60,10 @@ class TensorDecomp:
     def reconstruct(self):
 
         if self.decomp_type == 'svd':
-            self.recons = self.decomposed[0] @ (np.diag(self.decomposed[1])@self.decomposed[2])            
+            self.recons = self.decomposed[0] @ (np.diag(self.decomposed[1])@self.decomposed[2])
+        
+        elif self.decomp_type == 'NMF':
+            self.recons = self.nmf_obj.inverse_transform(self.decomposed[0])      
 
         elif self.decomp_type == 'tucker':
             from tensorly import tucker_tensor as tt
@@ -73,8 +76,8 @@ class TensorDecomp:
         elif self.decomp_type == 'matrix_product_state':
             from tensorly import tt_tensor as tt
             self.recons = tt.tt_to_tensor(self.decomposed)
-        elif self.decomp_type == 'NMF':
-            self.recons = self.nmf_obj.inverse_transform(self.decomposed[0])
+
+
 
  
 
@@ -95,20 +98,3 @@ class TensorDecomp:
         return func(x-y) / func(x)
 
 
-a = np.random.randint(20, size = (12,12))
-vec = np.random.randint(5, size = a.shape[1])
-
-
-tens = TensorDecomp(a.astype('float'))
-tens.decompose(NMF, rank = 10)
-tens.reconstruct()
-
-
-
-
-print(f"Decomposition Type:\t\t\t {tens.decomp_type}")
-print(f"Size in memory before decomposition:{tens.memSize: 9d}")
-print(f"Decomposition Time: {tens.decomp_time:39.16f}")
-print(f"Size in memory after decomposition:\t {tens.decMemSize}")
-print(f"Decomposition Relative Error:{tens.error(np.linalg.norm, tens.tensor, tens.recons):30.16f}", )
-# print(f"Vector Multiplication Error:{tens.vecMultErr:31.16f}" )
