@@ -1,17 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import sparse
+import sparse
 
 
 from numpy.linalg import svd
+from scipy.linalg import clarkson_woodruff_transform
 from tensorly.decomposition import parafac
 from tensorly.decomposition import tucker
 from tensorly.decomposition import matrix_product_state
 from timeit import default_timer as timer
 from sklearn.decomposition import NMF
-from tensorly.contrib.sparse.decomposition import tucker as tucker_s
+from tensorly.contrib.sparse.decomposition import tucker as sparse_tucker
 
-decomp_list = ['svd', 'parafac', 'tucker', 'matrix_product_state', 'NMF','stucker']
+decomp_list = ['svd', 'parafac', 'tucker', 'matrix_product_state', 'NMF','sparse_tucker', 'clarkson_woodruff_transform']
+
 
 class TensorDecomp:
     """
@@ -20,16 +22,18 @@ class TensorDecomp:
     
     Attributes
     ----------
-    tensor : numpy.ndarray
+    tensor      : numpy.ndarray
         The tensor that is given to the class.
-    memSize : int
+    memSize     : int
         The size of the tensor in the memory before decomposition.
-    decMemSize : int
+    decMemSize  : int
         The size of the tensor in the memory after decomposition.
     decomp_time : float
         The time elapsed to decompose the tensor.
     decomp_type : str
         The __name__ of the provided func argument.
+    memChange   : float
+        The relative change of memory requirement of the tensor after decomposition.
 
 
     Methods
@@ -49,9 +53,12 @@ class TensorDecomp:
         self.tensor = tensor      
         self.decMemSize = 0
 
-        if sparse.issparse(tensor):
+        if isinstance(self.tensor, sparse._coo.core.COO):
+
             print("Sparse!!!!")
-            self.memSize = tensor.data.nbytes + tensor.row.nbytes + tensor.col.nbytes
+            #self.memSize = tensor.data.nbytes + tensor.row.nbytes + tensor.col.nbytes
+            self.memSize = tensor.nbytes
+
         else:
             self.memSize = tensor.nbytes
         
@@ -100,16 +107,9 @@ class TensorDecomp:
             self.decomp_type = func.__name__
             self.decomp_time = te-ts
 
-        elif 'rank' in kwargs:
-            ts = timer()
-            self.decomposed = func(self.tensor, kwargs['rank'])
-            te = timer()
-            self.decomp_type = func.__name__
-            self.decomp_time = te-ts
-
         else:
             ts = timer()
-            self.decomposed = func(self.tensor)
+            self.decomposed = func(self.tensor, **kwargs)
             te = timer()
             self.decomp_type = func.__name__
             self.decomp_time = te-ts
@@ -120,6 +120,10 @@ class TensorDecomp:
             for array in self.decomposed[1]:
                 if isinstance(array,(np.ndarray)):
                     self.decMemSize += array.nbytes
+
+        # the tensor size change in memory
+
+        self.memChange = (self.decMemSize - self.memSize) / self.memSize
 
     def reconstruct(self):
         """
@@ -153,6 +157,8 @@ class TensorDecomp:
         elif self.decomp_type == 'matrix_product_state':
             from tensorly import tt_tensor as tt
             self.recons = tt.tt_to_tensor(self.decomposed)
+        elif self.decomp_type == 'clarkson_woodruff_transform':
+            self.recons = self.decomposed
 
     def error(self,func, x, y):
         """
@@ -160,7 +166,7 @@ class TensorDecomp:
 
         Parameters
         ----------
-        func    : function object
+        func    : function object for error calculation. Example: np.linalg.norm
         x       : the original tensor
         y       : the reconstructed tensor
             
@@ -170,6 +176,8 @@ class TensorDecomp:
             the error between the original and the reconstructed tensor.            
         
         """
+        if isinstance(x, sparse._coo.core.COO):
+            # convert sparse matrix into dense matrix for error calc
+            x = x.todense()
 
-        return func(x-y) / func(x)
-
+        return (func(x) - func(y)) / func(x)
