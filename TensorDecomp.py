@@ -85,7 +85,7 @@ class TensorDecomp():
 
         elif func.__name__ == 'svd':
             ts = timer()
-            self.recons = func(self.tensor)
+            self.decomposed = func(self.tensor)
             te = timer()
             self.decomp_time = te-ts
             self.decomp_type = func.__name__
@@ -94,9 +94,9 @@ class TensorDecomp():
             try:
                 self.nmf_obj = NMF(**kwargs)
                 ts = timer()
-                self.recons = []
-                self.recons.append(self.nmf_obj.fit_transform(self.tensor) )
-                self.recons.append(self.nmf_obj.components_)
+                self.decomposed = []
+                self.decomposed.append(self.nmf_obj.fit_transform(self.tensor) )
+                self.decomposed.append(self.nmf_obj.components_)
                 te = timer()
                 self.decomp_time = te-ts
                 self.decomp_type = func.__name__
@@ -105,22 +105,22 @@ class TensorDecomp():
 
         elif args:
             ts = timer()
-            self.recons = func(self.tensor, args[0])
+            self.decomposed = func(self.tensor, args[0])
             te = timer()
             self.decomp_type = func.__name__
             self.decomp_time = te-ts
 
         else:
             ts = timer()
-            self.recons = func(self.tensor, **kwargs)
+            self.decomposed = func(self.tensor, **kwargs)
             te = timer()
             self.decomp_type = func.__name__
             self.decomp_time = te-ts
 
-        for array in self.recons:
+        for array in self.decomposed:
             if isinstance(array,(np.ndarray)):
                 self.decMemSize += array.nbytes
-            for array in self.recons[1]:
+            for array in self.decomposed[1]:
                 if isinstance(array,(np.ndarray)):
                     self.decMemSize += array.nbytes
 
@@ -145,28 +145,28 @@ class TensorDecomp():
 
         if self.decomp_type == 'svd':
             if self.tensor.ndim < 3:
-                self.recons = self.recons[0][...,:self.tensor.shape[-1]]*self.recons[1]@self.recons[2]
+                self.recons = self.decomposed[0][...,:self.tensor.shape[-1]]*self.decomposed[1]@self.decomposed[2]
             else:
-                self.recons = np.matmul(self.recons[0][...,:self.tensor.shape[-1]], self.recons[1][..., None] * self.recons[2])
+                self.recons = np.matmul(self.decomposed[0][...,:self.tensor.shape[-1]], self.decomposed[1][..., None] * self.decomposed[2])
 
 
         elif self.decomp_type == 'NMF':
-            self.recons = self.nmf_obj.inverse_transform(self.recons[0])
+            self.recons = self.nmf_obj.inverse_transform(self.decomposed[0])
 
         elif self.decomp_type == 'tucker':
             from tensorly import tucker_tensor as tt
-            self.recons = tt.tucker_to_tensor(self.recons)
+            self.recons = tt.tucker_to_tensor(self.decomposed)
 
         elif self.decomp_type == 'parafac':
             from tensorly import cp_tensor as ct
-            self.recons = ct.cp_to_tensor(self.recons)
+            self.recons = ct.cp_to_tensor(self.decomposed)
 
         elif self.decomp_type == 'matrix_product_state':
             from tensorly import tt_tensor as tt
-            self.recons = tt.tt_to_tensor(self.recons)
+            self.recons = tt.tt_to_tensor(self.decomposed)
 
         elif self.decomp_type == 'clarkson_woodruff_transform':
-            self.recons = self.recons
+            self.recons = self.decomposed
 
     def error(self,func, x, y, *args, **kwargs):
         """
@@ -221,7 +221,7 @@ def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank =
 
     """
     if tensor.tensor.ndim != 2 and decompMet in [NMF, clarkson_woodruff_transform] :
-        return (f"It is not possible to decompose {tensor.tensor.ndim = } with the {decompMet.__name__} method!")           
+        return (f"It is not possible to decompose {tensor.tensor.ndim} dimension with the {decompMet.__name__} method!")           
     
     if decompMet in [NMF,clarkson_woodruff_transform]:
         tensor.decompose(decompMet, **kwargs)
@@ -232,15 +232,32 @@ def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank =
 
     decErr = None
 
+
+    timings = []
+
     tensVec = [norm(tensor.tensor@vectorR, tensor.recons@vectorR) for norm in normL]
     vecTens = [norm(vectorL@tensor.tensor, vectorL@tensor.recons) for norm in normL]
     matLTens = [norm(MatrixL@tensor.tensor, MatrixL@tensor.recons) for norm in normL]
     tensMatR = [norm(tensor.tensor@MatrixR, tensor.recons@MatrixR) for norm in normL]
     vectTensvec = [norm(vectorL@tensor.tensor@vectorR, vectorL@tensor.recons@vectorR) for norm in normL]
-    matTTensMat = [norm(MatrixL@tensor.tensor@MatrixR, MatrixL@tensor.recons@MatrixR) for norm in normL]
+    matLTensMatR = [norm(MatrixL@tensor.tensor@MatrixR, MatrixL@tensor.recons@MatrixR) for norm in normL]
 
-    if decompMet != clarkson_woodruff_transform:
-        decErr = [norm(tensor.tensor, tensor.recons) for norm in normL]
-        return [decErr, tensVec, vecTens, tensMatR, matLTens, vectTensvec, matTTensMat]
+    if decompMet == clarkson_woodruff_transform:        
+        return [decErr, tensVec, vecTens, tensMatR, matLTens, vectTensvec, matLTensMatR]
     else:
-        return [decErr, tensVec, vecTens, tensMatR, matLTens, vectTensvec, matTTensMat]
+        decErr = [norm(tensor.tensor, tensor.recons) for norm in normL]
+        return [decErr, tensVec, vecTens, tensMatR, matLTens, vectTensvec, matLTensMatR]
+
+
+        
+
+
+
+
+
+
+
+
+    
+        
+
