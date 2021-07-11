@@ -1,11 +1,11 @@
 from math import inf
 import numpy as np
-import matplotlib.pyplot as plt
 
 from numpy.linalg import svd
 from scipy.linalg import norm
 from tensorly.decomposition import parafac
 from tensorly.decomposition import tucker
+from tensorly.decomposition import non_negative_tucker
 from tensorly.decomposition import matrix_product_state
 from scipy.linalg import clarkson_woodruff_transform
 from sklearn.decomposition import NMF
@@ -13,7 +13,7 @@ from timeit import default_timer as timer
 
 
 
-decomp_list = ['svd', 'parafac', 'tucker', 'matrix_product_state', 'NMF', 'clarkson_woodruff_transform']
+decomp_list = ['svd', 'parafac', 'tucker', 'matrix_product_state', 'NMF', 'clarkson_woodruff_transform', 'non_negative_tucker']
 
 
 class TensorDecomp():
@@ -33,7 +33,7 @@ class TensorDecomp():
         The time elapsed to decompose the tensor.
     decomp_type : str
         The __name__ of the provided func argument.
-    memChange   : float
+    memSaving   : float
         The relative change of memory requirement of the tensor after decomposition.
 
 
@@ -87,7 +87,7 @@ class TensorDecomp():
             ts = timer()
             self.decomposed = func(self.tensor)
             te = timer()
-            self.decomp_time = te-ts
+            self.decomp_time = np.round(te-ts,6)
             self.decomp_type = func.__name__
 
         elif func.__name__ == 'NMF':
@@ -98,7 +98,7 @@ class TensorDecomp():
                 self.decomposed.append(self.nmf_obj.fit_transform(self.tensor) )
                 self.decomposed.append(self.nmf_obj.components_)
                 te = timer()
-                self.decomp_time = te-ts
+                self.decomp_time = np.round(te-ts,6)
                 self.decomp_type = func.__name__
             except:
                 raise
@@ -108,14 +108,13 @@ class TensorDecomp():
             self.decomposed = func(self.tensor, args[0])
             te = timer()
             self.decomp_type = func.__name__
-            self.decomp_time = te-ts
-
+            self.decomp_time = np.round(te-ts,6)
         else:
             ts = timer()
             self.decomposed = func(self.tensor, **kwargs)
             te = timer()
             self.decomp_type = func.__name__
-            self.decomp_time = te-ts
+            self.decomp_time = np.round(te-ts,6)
 
         for array in self.decomposed:
             if isinstance(array,(np.ndarray)):
@@ -125,8 +124,7 @@ class TensorDecomp():
                     self.decMemSize += array.nbytes
 
         # the tensor size change in memory
-
-        self.memChange = (self.memSize - self.decMemSize) / self.memSize
+        self.memSaving = (self.memSize - self.decMemSize) / self.memSize
 
     def reconstruct(self):
         """
@@ -153,7 +151,7 @@ class TensorDecomp():
         elif self.decomp_type == 'NMF':
             self.recons = self.nmf_obj.inverse_transform(self.decomposed[0])
 
-        elif self.decomp_type == 'tucker':
+        elif self.decomp_type == 'tucker' or self.decomp_type == 'non_negative_tucker':
             from tensorly import tucker_tensor as tt
             self.recons = tt.tucker_to_tensor(self.decomposed)
 
@@ -247,17 +245,3 @@ def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank =
     else:
         decErr = [norm(tensor.tensor, tensor.recons) for norm in normL]
         return [decErr, tensVec, vecTens, tensMatR, matLTens, vectTensvec, matLTensMatR]
-
-
-        
-
-
-
-
-
-
-
-
-    
-        
-
