@@ -224,3 +224,49 @@ def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank =
         decErr = [norm(tensor.tensor, tensor.recons) for norm in normL]
         return [decErr, tensVec, vecTens, tensMatR, matLTens, vectTensvec, matLTensMatR]
 
+def tensOpTim(tensor, vectorR, vectorL, MatrixR, MatrixL, operList):
+    """Performs tensor@vectorR, vectorL@tensor, tensor@MatrixR, MatrixL@tensor, vecL@tensor@vecR, matL@tensor@matR
+    operations and times the each operation returns them in a list in the explained order
+
+    Args:
+        tensor (numpy.ndarray): Tensor
+        vectorR (numpy 1-d array): Vector for tensor@VectorR operation
+        vectorL (numpy 1-d array): Vector for vectorL@tensor operation
+        MatrixR (numpy 2-d array): Matrix for tensor@MatrixR operation
+        MatrixL (numpy 2-d array): Matrix for MatrixL@tensor operation
+
+    Returns:
+        list: List of tensor operation times
+    """
+
+    timing = []
+    
+    for operation in operList:
+        t1 = timer()        
+        eval(operation)
+        t2 = timer()
+        timing.append((t2-t1))
+
+    return timing
+
+### NOT Implemented ###
+# def decTensOpTim(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, rank = None, **kwargs):
+#     timing = []
+#     if tensor.tensor.ndim != 2 and decompMet in [NMF, clarkson_woodruff_transform] :
+#         return (f"It is not possible to decompose {tensor.tensor.ndim = } with the {decompMet.__name__} method!")           
+    
+#     if decompMet in [NMF,clarkson_woodruff_transform]:
+#         tensor.decompose(decompMet, **kwargs)
+#     else:
+#         tensor.decompose(decompMet, rank)
+
+    
+#     operList = []
+
+#     for operation in operList:
+#         t1 = timer()
+#         eval(operation)
+#         t2 = timer()
+#         timing.append((t2-t1))
+
+#     return timing
