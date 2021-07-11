@@ -5,7 +5,7 @@ from numpy.linalg import svd
 from scipy.linalg import norm
 from tensorly.decomposition import parafac
 from tensorly.decomposition import tucker
-from tensorly.decomposition import non_negative_tucker
+from tensorly.decomposition import non_negative_parafac
 from tensorly.decomposition import matrix_product_state
 from scipy.linalg import clarkson_woodruff_transform
 from sklearn.decomposition import NMF
@@ -13,7 +13,7 @@ from timeit import default_timer as timer
 
 
 
-decomp_list = ['svd', 'parafac', 'tucker', 'matrix_product_state', 'NMF', 'clarkson_woodruff_transform', 'non_negative_tucker']
+decomp_list = ['svd', 'parafac', 'tucker', 'matrix_product_state', 'NMF', 'clarkson_woodruff_transform', 'non_negative_parafac']
 
 
 class TensorDecomp():
@@ -151,11 +151,11 @@ class TensorDecomp():
         elif self.decomp_type == 'NMF':
             self.recons = self.nmf_obj.inverse_transform(self.decomposed[0])
 
-        elif self.decomp_type == 'tucker' or self.decomp_type == 'non_negative_tucker':
+        elif self.decomp_type == 'tucker' :
             from tensorly import tucker_tensor as tt
             self.recons = tt.tucker_to_tensor(self.decomposed)
 
-        elif self.decomp_type == 'parafac':
+        elif self.decomp_type == 'parafac' or self.decomp_type == 'non_negative_parafac':
             from tensorly import cp_tensor as ct
             self.recons = ct.cp_to_tensor(self.decomposed)
 
@@ -166,27 +166,8 @@ class TensorDecomp():
         elif self.decomp_type == 'clarkson_woodruff_transform':
             self.recons = self.decomposed
 
-    def error(self,func, x, y, *args, **kwargs):
-        """
-        Computes the error between the original and reconstructed tensor with a given error function.
 
-        Args:
-        ----------
-        func    : function object for error calculation. Example: np.linalg.norm
-        x       : the original tensor
-        y       : the reconstructed tensor
-            
-        Returns
-        -------
-        float
-            the error between the original and the reconstructed tensor.            
-        
-        """
-        if self.decomp_type == 'clarkson_woodruff_transform':
-            print("Sketching decomposition error cannot be calculated.")
-            return None
-        else:
-            return (func(x-y)) / func(x)
+        self.decError = (norm(self.tensor-self.recons)) / norm(self.tensor)
 
 def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank = None, **kwargs):
     """A function to calculate the norm of the followging:
@@ -245,3 +226,4 @@ def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank =
     else:
         decErr = [norm(tensor.tensor, tensor.recons) for norm in normL]
         return [decErr, tensVec, vecTens, tensMatR, matLTens, vectTensvec, matLTensMatR]
+
