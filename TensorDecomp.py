@@ -115,8 +115,8 @@ class TensorDecomp():
             te = timer()
             self.decomp_type = func.__name__
             self.decomp_time = np.round(te-ts,6)
-
-        for array in self.decomposed:
+        
+        for array in self.decomposed:            
             if isinstance(array,(np.ndarray)):
                 self.decMemSize += array.nbytes
             for array in self.decomposed[1]:
@@ -170,15 +170,15 @@ class TensorDecomp():
         self.decError = (norm(self.tensor-self.recons)) / norm(self.tensor)
 
 def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank = None, **kwargs):
-    """A function to calculate the norm of the followging:
+    """A function to calculate the norm of the following:
 
     tensor decomposition, 
     Tensor @ Vector, 
     Vector @ Tensor, 
     Tensor @ Matrix, 
     Matrix @ Tensor, 
-    Vector.T @ Tensor @ Vector, 
-    Matrix.T @ Tensor @ Matrix operations error, 
+    Vector @ Tensor @ Vector, 
+    Matrix @ Tensor @ Matrix operations error, 
 
     in this order.    
 
@@ -210,9 +210,6 @@ def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank =
         tensor.reconstruct()
 
     decErr = None
-
-
-    timings = []
 
     tensVec = [norm(tensor.tensor@vectorR, tensor.recons@vectorR) for norm in normL]
     vecTens = [norm(vectorL@tensor.tensor, vectorL@tensor.recons) for norm in normL]
