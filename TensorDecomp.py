@@ -1,7 +1,8 @@
 from math import inf
 import numpy as np
+import timeit
 
-from numpy.linalg import svd
+from scipy.sparse.linalg import svds
 from scipy.linalg import norm
 from tensorly.decomposition import parafac
 from tensorly.decomposition import tucker
@@ -9,13 +10,28 @@ from tensorly.decomposition import non_negative_parafac
 from tensorly.decomposition import matrix_product_state
 from scipy.linalg import clarkson_woodruff_transform
 from sklearn.decomposition import NMF
-from timeit import default_timer as timer
-
+from scipy.sparse import bsr_matrix
 
 
 decomp_list = ['svd', 'parafac', 'tucker', 'matrix_product_state', 'NMF', 'clarkson_woodruff_transform', 'non_negative_parafac']
 
+def blk_diag(data):
+    """Build a block diagonal sparse matrix from a 3d numpy array
 
+    :param data: input array in R^{ngp,d1,d2}
+    :type data: array
+
+    :returns: sparse matrix in R^{ngp*d1, ngp*d2}
+
+    Notes
+    ----
+        for the intended usage here, this function is faster than block_diag 'from scipy.sparse import block_diag'
+        See Also: https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.bsr_matrix.html
+    """
+
+    indptr = np.array(range(0, data.shape[0] + 1))
+    indices = np.array(range(data.shape[0]))
+    return bsr_matrix((data, indices, indptr))
 class TensorDecomp():
     """
     A class to represent a tensor object with decomposition, reconstruction, error methods.
@@ -78,43 +94,36 @@ class TensorDecomp():
         None            
         
         """
+        n = 50
 
         if func.__name__ not in decomp_list:
             print(f'Error! Given decomposition --> {func.__name__}')
             return
 
         elif func.__name__ == 'svd':
-            ts = timer()
             self.decomposed = func(self.tensor)
-            te = timer()
-            self.decomp_time = np.round(te-ts,6)
+            self.decomp_time = timeit.timeit( lambda: func(self.tensor, **kwargs), number = n)/n
             self.decomp_type = func.__name__
 
         elif func.__name__ == 'NMF':
             try:
                 self.nmf_obj = NMF(**kwargs)
-                ts = timer()
                 self.decomposed = []
                 self.decomposed.append(self.nmf_obj.fit_transform(self.tensor) )
                 self.decomposed.append(self.nmf_obj.components_)
-                te = timer()
-                self.decomp_time = np.round(te-ts,6)
+                self.decomp_time = timeit.timeit(lambda: func(self.tensor, **kwargs), number = n)/n
                 self.decomp_type = func.__name__
             except:
                 raise
 
-        elif args:
-            ts = timer()
+        elif args:            
             self.decomposed = func(self.tensor, args[0])
-            te = timer()
             self.decomp_type = func.__name__
-            self.decomp_time = np.round(te-ts,6)
+            # self.decomp_time = timeit.timeit(stmt = 'func(self.tensor, args[0])', setup='from __main__ import func, tensor, args', number = n)/n
         else:
-            ts = timer()
             self.decomposed = func(self.tensor, **kwargs)
-            te = timer()
             self.decomp_type = func.__name__
-            self.decomp_time = np.round(te-ts,6)
+            # self.decomp_time = timeit.timeit(stmt = 'func(self.tensor, args[0])', globals=globals(), number = n)/n
         
         for array in self.decomposed:            
             if isinstance(array,(np.ndarray)):
@@ -147,7 +156,6 @@ class TensorDecomp():
             else:
                 self.recons = np.matmul(self.decomposed[0][...,:self.tensor.shape[-1]], self.decomposed[1][..., None] * self.decomposed[2])
 
-
         elif self.decomp_type == 'NMF':
             self.recons = self.nmf_obj.inverse_transform(self.decomposed[0])
 
@@ -169,16 +177,13 @@ class TensorDecomp():
 
         self.decError = (norm(self.tensor-self.recons)) / norm(self.tensor)
 
-def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank = None, **kwargs):
+def errList(tensor, decompMet, vectorL, MatrixR, MatrixL, normL, rank = None, **kwargs):
     """A function to calculate the norm of the following:
 
     tensor decomposition, 
-    Tensor @ Vector, 
-    Vector @ Tensor, 
-    Tensor @ Matrix, 
-    Matrix @ Tensor, 
-    Vector @ Tensor @ Vector, 
-    Matrix @ Tensor @ Matrix operations error, 
+    Tensor @ Vector,  
+    Matrix @ Tensor,
+    Matrix.T @ Tensor @ Matrix operations error, 
 
     in this order.    
 
@@ -224,29 +229,33 @@ def errList(tensor, decompMet, vectorR, vectorL, MatrixR, MatrixL, normL, rank =
         decErr = [norm(tensor.tensor, tensor.recons) for norm in normL]
         return [decErr, tensVec, vecTens, tensMatR, matLTens, vectTensvec, matLTensMatR]
 
-def tensOpTim(tensor, vectorR, vectorL, MatrixR, MatrixL, operList):
+def tensOpTim(operList):
     """Performs tensor@vectorR, vectorL@tensor, tensor@MatrixR, MatrixL@tensor, vecL@tensor@vecR, matL@tensor@matR
     operations and times the each operation returns them in a list in the explained order
 
     Args:
-        tensor (numpy.ndarray): Tensor
-        vectorR (numpy 1-d array): Vector for tensor@VectorR operation
-        vectorL (numpy 1-d array): Vector for vectorL@tensor operation
-        MatrixR (numpy 2-d array): Matrix for tensor@MatrixR operation
-        MatrixL (numpy 2-d array): Matrix for MatrixL@tensor operation
+        operList    : List of tensor operations in lambda form
 
     Returns:
-        list: List of tensor operation times
+        list        : List of tensor operation times
     """
-
     timing = []
-    
+    n = 50
     for operation in operList:
-        t1 = timer()        
-        eval(operation)
-        t2 = timer()
-        timing.append((t2-t1))
-
+        opTime = timeit.timeit(operation, number=n)/n
+        timing.append(opTime)
+    # opTime = timeit.timeit(lambda:tensor.tensor@vecR, number = n)/n
+    # timing.append(opTime)
+    # opTime = timeit.timeit(lambda:vecL@tensor.tensor, number = n)/n
+    # timing.append(opTime)
+    # opTime = timeit.timeit(lambda:tensor.tensor@matR, number = n)/n
+    # timing.append(opTime)
+    # opTime = timeit.timeit(lambda:matL@tensor.tensor, number = n)/n
+    # timing.append(opTime)
+    # opTime = timeit.timeit(lambda:vecL@tensor.tensor@vecR, number = n)/n
+    # timing.append(opTime)
+    # opTime = timeit.timeit(lambda:matL@tensor.tensor@matR, number = n)/n
+    # timing.append(opTime)
     return timing
 
 ### NOT Implemented ###
